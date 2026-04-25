@@ -8,25 +8,30 @@ use mimalloc::MiMalloc;
 use ahash::RandomState;
 use hashbrown::{HashMap as HHashMap, HashSet};
 
+// HashMap alias that uses ahash instead of the default SipHash for better performance
 type BrownMap<K, V> = HHashMap<K, V, RandomState>;
 
+// Replace the default system allocator with mimalloc for faster allocations
 #[global_allocator]
 static GLOBAL: MiMalloc = MiMalloc;
 
+// Represents a single version entry from the crates.io API response
 #[derive(serde::Deserialize, Debug, Clone)]
 struct CratesResponseVersion {
     num: String,
     features: BrownMap<String, Vec<String>>,
 }
 
+// Top-level crate metadata — we only need the latest stable version string
 #[derive(serde::Deserialize, Debug, Clone)]
 struct CratesResponseCrate {
     max_stable_version: String,
 }
 
+// Root shape of the crates.io API response for a single crate
 #[derive(serde::Deserialize, Debug, Clone)]
 struct CratesResponse {
-    #[serde(rename = "crate")]
+    #[serde(rename = "crate")] // the JSON key is "crate", which is a reserved keyword in Rust
     krate: CratesResponseCrate,
     versions: Vec<CratesResponseVersion>,
 }
@@ -34,6 +39,7 @@ struct CratesResponse {
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
 
+    // No arguments: print help and exit cleanly
     if args.is_empty() {
         println!("{}", "—— Thanks for using cargo-feat ˎˊ˗".magenta());
         println!(
@@ -60,6 +66,7 @@ fn main() {
         return;
     }
 
+    // Build the HTTP client with all compression algorithms enabled and Hickory DNS resolver
     let client = reqwest::blocking::Client::builder()
         .deflate(true)
         .gzip(true)
@@ -74,7 +81,9 @@ fn main() {
 
     let user_agent = fake_user_agent::get_firefox_rua();
 
+    // Normalize underscores to hyphens — crates.io uses hyphens in crate names
     let crate_name = args.first().unwrap().trim().replace("_", "-");
+    // Second arg controls which features to show: "all" (default) or "nd" (non-default only)
     let feat_filter = args
         .get(1)
         .unwrap_or(&String::from("all"))
@@ -90,6 +99,7 @@ fn main() {
         Ok(response) => match response.bytes() {
             Ok(body) => {
                 let mut body_bytes = body.to_vec();
+                // simd-json parses in-place and requires a mutable slice
                 let data: CratesResponse = match simd_json::from_slice(&mut body_bytes) {
                     Ok(data) => data,
                     Err(err) => {
@@ -106,11 +116,13 @@ fn main() {
                     }
                 };
 
+                // Third arg is the version; fall back to the latest stable if omitted
                 let crate_version = args
                     .get(2)
                     .map(|s| s.as_str())
                     .unwrap_or(&data.krate.max_stable_version);
 
+                // Find the version entry that matches, or exit if it doesn't exist
                 let mut features: Vec<_> = data
                     .versions
                     .iter()
@@ -153,16 +165,20 @@ fn main() {
                     "—".bold().yellow()
                 );
 
+                // Sort so "default" always comes first, then everything else alphabetically
                 features.sort_by_key(|(key, _)| (key != "default", key.clone()));
 
+                // Build a set of feature names that are enabled by default for O(1) lookup below
                 let default_features_set: HashSet<&String> = features
                     .iter()
                     .find(|(k, _)| k == "default")
                     .map(|(_, v)| v.iter().collect::<HashSet<_>>())
                     .unwrap_or_default();
 
+                // Skip internal/private features (crates use __ prefix by convention)
                 for (key, val) in features.iter().filter(|a| !a.0.starts_with("__")) {
                     if key != "default" {
+                        // Regular feature line — mark it if it's part of the default set
                         println!(
                             "\t{} {} {}",
                             "—".b_magenta(),
@@ -181,6 +197,7 @@ fn main() {
                         continue;
                     }
 
+                    // "nd" filter: skip printing the default feature block entirely
                     if feat_filter == "nd" {
                         continue;
                     }
@@ -195,6 +212,7 @@ fn main() {
                         continue;
                     }
 
+                    // Print the default feature block with its list of enabled features
                     println!(
                         "\t{} {} \n\t     {}",
                         "★".b_yellow(),

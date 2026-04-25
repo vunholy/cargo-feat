@@ -1,6 +1,6 @@
 # cargo-feat
 
-> **Disclaimer:** I'm not a Rust professional and I'm not claiming to be one — I built this simply because it was useful to me. Claude was only used to generate the `.gitignore`, this `README`, and code comments. The actual code is mine.
+> **Disclaimer:** I'm not a Rust professional and I'm not claiming to be one — I built this simply because it was useful to me. 90%+ of the code is mine alone, very small edits were done using ChatGPT. Claude was only used to generate the `.gitignore`, this `README`, and code comments.
 
 A fast command-line tool for Rust developers to instantly look up the available features of any crate on [crates.io](https://crates.io) — directly in your terminal, with no browser required.
 
