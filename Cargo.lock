@@ -129,6 +129,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1e748733b7cbc798e1434b6ac524f0c1ff2ab456fe201501e6497c8417a4fc33"
 
 [[package]]
+name = "cargo-feat"
+version = "0.1.0"
+dependencies = [
+ "ahash",
+ "colorize",
+ "fake_user_agent",
+ "hashbrown 0.17.0",
+ "mimalloc",
+ "reqwest",
+ "serde",
+ "simd-json",
+]
+
+[[package]]
 name = "cc"
 version = "1.2.61"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -296,20 +310,6 @@ name = "fastrand"
 version = "2.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9f1f227452a390804cdb637b74a86990f2a7d7ba4b7d5693aac9b4dd6defd8d6"
-
-[[package]]
-name = "feat"
-version = "0.1.0"
-dependencies = [
- "ahash",
- "colorize",
- "fake_user_agent",
- "hashbrown 0.17.0",
- "mimalloc",
- "reqwest",
- "serde",
- "simd-json",
-]
 
 [[package]]
 name = "find-msvc-tools"

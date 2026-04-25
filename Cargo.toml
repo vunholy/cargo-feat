@@ -1,7 +1,16 @@
 [package]
-name = "feat"
+name = "cargo-feat"
 version = "0.1.0"
 edition = "2024"
+description = "Instantly look up available features for any crate on crates.io, directly in your terminal."
+license = "Apache-2.0"
+repository = "https://github.com/vunholy/cargo-feat"
+keywords = ["cargo", "crates", "features", "cli"]
+categories = ["command-line-utilities", "development-tools::cargo-plugins"]
+
+[[bin]]
+name = "cargo-feat"
+path = "src/main.rs"
 
 [dependencies]
 colorize = "0.1.0"
