@@ -1,5 +1,7 @@
 # cargo-feat
 
+[![crates.io](https://img.shields.io/crates/v/cargo-feat.svg)](https://crates.io/crates/cargo-feat)
+
 > **Disclaimer:** I am not a Rust professional and I am not claiming to be one - I built this simply because it was useful to me. 90%+ of the code was written solely by me and not just vibe-coded like most of the "personal tools" being released these days; very small edits were done using ChatGPT. Claude was only used to generate the `.gitignore`, this `README`, and code comments.
 
 A fast command-line tool for Rust developers to instantly look up the available features of any crate on [crates.io](https://crates.io) - directly in your terminal, with no browser required.
