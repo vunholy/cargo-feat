@@ -36,6 +36,9 @@ struct CratesResponse {
     versions: Vec<CratesResponseVersion>,
 }
 
+const FILTER_ALL: &str = "all";
+const FILTER_ND: &str = "nd";
+
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
 
@@ -73,7 +76,6 @@ fn main() {
         .brotli(true)
         .zstd(true)
         .hickory_dns(true)
-        .deflate(true)
         .build().map_err(|err| {
 	       	eprintln!("{}{} {}{} {}\n- {:#?}", "<".b_black(), "Uh".yellow(), "oh".b_red(), ">".b_black(), "Couldn't create a reqwest client at all\nPlease submit this issue in the git repository with the following error:".yellow(), err);
 			exit(100);
@@ -83,12 +85,19 @@ fn main() {
 
     // Normalize underscores to hyphens — crates.io uses hyphens in crate names
     let crate_name = args.first().unwrap().trim().replace("_", "-");
-    // Second arg controls which features to show: "all" (default) or "nd" (non-default only)
-    let feat_filter = args
-        .get(1)
-        .unwrap_or(&String::from("all"))
-        .trim()
-        .to_string();
+
+    // Remaining args are order-independent: "all"/"nd" sets the filter, anything else is the version
+    let mut feat_filter = FILTER_ALL.to_string();
+    let mut explicit_version: Option<String> = None;
+    for arg in args.iter().skip(1) {
+        let s = arg.trim();
+        if s == FILTER_ALL || s == FILTER_ND {
+            feat_filter = s.to_string();
+        } else {
+            explicit_version = Some(s.to_string());
+        }
+    }
+
     let crate_api = "https://crates.io/api/v1/crates/";
 
     match client
@@ -116,10 +125,9 @@ fn main() {
                     }
                 };
 
-                // Third arg is the version; fall back to the latest stable if omitted
-                let crate_version = args
-                    .get(2)
-                    .map(|s| s.as_str())
+                // Use the explicitly provided version, or fall back to latest stable
+                let crate_version = explicit_version
+                    .as_deref()
                     .unwrap_or(&data.krate.max_stable_version);
 
                 // Find the version entry that matches, or exit if it doesn't exist
@@ -129,12 +137,14 @@ fn main() {
                     .find(|i| i.num == crate_version)
                     .unwrap_or_else(|| {
                         eprintln!(
-                            "{}{} {}{} {}\n- Couldn't find the specified version",
+                            "{}{} {}{} {}\n- Version \"{}\" not found for crate \"{}\"",
                             "<".b_black(),
                             "Uh".yellow(),
                             "oh".b_red(),
                             ">".b_black(),
-                            "Received a bad response from the used api\nError details:".yellow(),
+                            "The specified version does not exist on crates.io".yellow(),
+                            crate_version,
+                            crate_name,
                         );
                         exit(104);
                     })
@@ -198,7 +208,7 @@ fn main() {
                     }
 
                     // "nd" filter: skip printing the default feature block entirely
-                    if feat_filter == "nd" {
+                    if feat_filter == FILTER_ND {
                         continue;
                     }
 

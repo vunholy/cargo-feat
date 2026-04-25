@@ -63,7 +63,7 @@ Copy-Item target\release\feat.exe "$env:USERPROFILE\.cargo\bin\feat.exe"
 ## Usage
 
 ```
-feat <crate-name> [all|nd] [version]
+feat <crate-name> [version] [all|nd]
 ```
 
 | Argument | Required | Description |
@@ -71,6 +71,8 @@ feat <crate-name> [all|nd] [version]
 | `<crate-name>` | Yes | Name of the crate to look up. Underscores are automatically normalized to hyphens. |
 | `[all\|nd]` | No | Feature filter. `all` (default) shows every feature. `nd` hides the default feature block but still lists all features and marks the ones that are part of the default set. |
 | `[version]` | No | Specific crate version to query. Defaults to the latest stable release. |
+
+The `version` and `all|nd` arguments are order-independent — `feat tokio 1.35.0 nd` and `feat tokio nd 1.35.0` both work.
 
 ### Examples
 
@@ -82,7 +84,10 @@ feat reqwest
 feat reqwest nd
 
 # List features for a specific version
-feat tokio all 1.35.0
+feat tokio 1.35.0
+
+# Combine a version with a filter
+feat tokio 1.35.0 nd
 
 # Crate names with underscores work fine
 feat proc_macro2
