@@ -40,7 +40,11 @@ const FILTER_ALL: &str = "all";
 const FILTER_ND: &str = "nd";
 
 fn main() {
-    let args: Vec<String> = std::env::args().skip(1).collect();
+    // When invoked as `cargo feat`, cargo prepends "feat" as the first arg — skip it
+    let mut args: Vec<String> = std::env::args().skip(1).collect();
+    if args.first().map(|s| s.as_str()) == Some("feat") {
+        args.remove(0);
+    }
 
     // No arguments: print help and exit cleanly
     if args.is_empty() {
