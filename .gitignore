@@ -1,0 +1,25 @@
+# Build output
+/target/
+
+# Cargo lock is kept for binaries (remove this line if you want to ignore it)
+# Cargo.lock
+
+# Editor / IDE
+.vscode/
+.idea/
+*.iml
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Environment / secrets
+.env
+.env.*
+
+# Rust analyzer / rust-project
+rust-project.json
