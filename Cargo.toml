@@ -18,12 +18,6 @@ path = "src/main.rs"
 
 [dependencies]
 colorize = "0.1.0"
-fake_user_agent = "0.2.3"
-reqwest = {
-	version = "0.13.2",
-	default-features = false,
-	features = ["http2", "native-tls", "hickory-dns", "system-proxy", "gzip", "brotli", "zstd", "deflate", "blocking"]
-}
 
 simd-json = "0.17.0"
 
@@ -31,12 +25,14 @@ serde = { version = "1", default-features = false, features = ["derive"] }
 ahash = { version = "0.8.12" }
 mimalloc = { version = "0.1.50", default-features = false }
 hashbrown = { version = "0.17.0", features = ["serde"] }
+ureq = { version = "3", default-features = false, features = ["rustls", "gzip"] }
 
 [profile.release]
-opt-level = "z"
+opt-level = 3
 lto = "fat"
 codegen-units = 1
 panic = "unwind"
+overflow-checks = false
 strip = "symbols"
 debug = false
 incremental = false
