@@ -176,7 +176,9 @@ With `--internals`:
 
 ## Performance
 
-`cargo-feat` is built with performance as a first-class concern. Benchmarked against `cargo info` on a Ryzen 5 5500, Windows 11, warm local registry cache:
+`cargo-feat` is built with performance as a first-class concern. Benchmarked against `cargo info` on a Ryzen 5 5500, Windows 11, warm local registry cache.
+
+**Via `cargo feat`** (includes cargo's own startup overhead):
 
 ```
 hyperfine --warmup 10 --runs 50 \
@@ -184,28 +186,41 @@ hyperfine --warmup 10 --runs 50 \
   -n 'cargo info (network)'      'cargo info reqwest' \
   -n 'cargo feat'                'cargo feat reqwest'
 
-	cargo feat                 49.2 ms ± 1.7 ms
-	cargo info (offline/warm) 81.0 ms ± 4.0 ms    ~1.65x slower
-	cargo info (network)      357.3 ms ± 11.4 ms  ~7.26x slower
+  cargo feat                  49.2 ms ±  1.7 ms
+  cargo info (offline/warm)   81.0 ms ±  4.0 ms   ~1.65x slower
+  cargo info (network)       357.3 ms ± 11.4 ms   ~7.26x slower
+```
+
+**Via `feat` directly** (binary invoked without cargo — recommended for daily use):
+
+```
+hyperfine --warmup 10 --runs 50 \
+  -n 'cargo info (offline/warm)' 'cargo info reqwest --offline' \
+  -n 'cargo info (network)'      'cargo info reqwest' \
+  -n 'feat'                      'feat reqwest'
+
+  feat                        9.9 ms ±  0.6 ms
+  cargo info (offline/warm)  80.9 ms ±  4.4 ms    8.2x slower
+  cargo info (network)      365.0 ms ± 14.7 ms   37.1x slower
 ```
 
 The lookup time stays flat regardless of how many versions a crate has. `serde` (180+ versions in the index) benchmarks identically to `reqwest`:
 
 ```
-  cargo feat serde   12.0 ms ±  1.6 ms
-  cargo info serde   92.7 ms ±  7.7 ms    7.7x slower
+  feat serde          9.9 ms ±  0.6 ms
+  cargo info serde   92.7 ms ±  7.7 ms    9.4x slower
 ```
 
-The remaining ~12 ms is Windows process startup — unavoidable overhead from the OS loader. The actual feature lookup logic completes in ~2–3 ms.
+The remaining ~10 ms is Windows process startup — unavoidable overhead from the OS loader. The actual feature lookup logic completes in under 1 ms.
 
 **How it achieves this:**
 
-- **Sparse registry index** — reads directly from `index.crates.io` (Cloudflare CDN), the same source Cargo uses, instead of the heavier crates.io REST API.
+- **Sparse registry index** — reads directly from the crates.io sparse index (served via Cloudflare CDN), the same source Cargo uses, instead of the heavier crates.io REST API.
 - **Local cache first** — on every lookup, `cargo-feat` checks your local Cargo registry cache (`~/.cargo/registry/index/`) before touching the network. If you've ever built a project that depends on the crate, the result is instant. After any network fetch, the result is written back to the cache, so the next run is always fast.
+- **Early-stop parsing** — scans the index from the end and stops at the first stable match, parsing O(1) entries instead of O(n versions).
 - **[MiMalloc](https://github.com/microsoft/mimalloc)** — Microsoft's high-performance memory allocator replaces the system allocator globally.
 - **[simd-json](https://github.com/simd-lite/simd-json)** — SIMD-accelerated JSON parsing (AVX2/FMA when available).
-- **[hashbrown](https://github.com/rust-lang/hashbrown)** + **[ahash](https://github.com/tkaitchuck/ahash)** — faster `HashMap` and `HashSet` than the standard library.
-- **Aggressive release profile** — fat LTO, single codegen unit, `opt-level = 3`, stripped symbols.
+- **Aggressive release profile** — fat LTO, single codegen unit, `opt-level = 3`, `panic = abort`, stripped symbols.
 - **[ureq](https://github.com/algesten/ureq)** with rustls (pure-Rust TLS) and gzip decompression.
 
 ---
