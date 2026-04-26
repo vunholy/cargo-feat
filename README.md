@@ -176,17 +176,17 @@ With `--internals`:
 
 ## Performance
 
-`cargo-feat` is built with performance as a first-class concern. Benchmarked against `cargo info`:
+`cargo-feat` is built with performance as a first-class concern. Benchmarked against `cargo info` on a Ryzen 5 5500, Windows 11, warm local registry cache:
 
 ```
-hyperfine --warmup 3 --runs 20 \
-  -n 'cargo info (warm/offline)' 'cargo info reqwest --offline' \
+hyperfine --warmup 10 --runs 50 \
+  -n 'cargo info (offline/warm)' 'cargo info reqwest --offline' \
   -n 'cargo info (network)'      'cargo info reqwest' \
   -n 'cargo feat'                'cargo feat reqwest'
 
-  cargo feat                51.1 ms ±  1.8 ms
-  cargo info (warm/offline) 81.9 ms ±  1.7 ms   1.6x slower
-  cargo info (network)     360.5 ms ± 10.4 ms   7.1x slower
+  cargo feat                 14.9 ms ±  2.2 ms
+  cargo info (offline/warm) 103.1 ms ±  7.9 ms    6.9x slower
+  cargo info (network)      381.9 ms ± 15.3 ms   25.7x slower
 ```
 
 **How it achieves this:**
