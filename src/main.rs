@@ -1,24 +1,52 @@
+use std::collections::{HashMap, HashSet};
 use std::io::{self, BufWriter, Write};
 use std::process::exit;
 
-use colorize::AnsiColor;
 use mimalloc::MiMalloc;
-
-use ahash::RandomState;
-use hashbrown::{HashMap as HHashMap, HashSet};
-
-type BrownMap<K, V> = HHashMap<K, V, RandomState>;
 
 #[global_allocator]
 static GLOBAL: MiMalloc = MiMalloc;
 
+trait AnsiColor {
+    fn magenta(self)   -> String; fn yellow(self)    -> String;
+    fn grey(self)      -> String; fn blue(self)      -> String;
+    fn cyan(self)      -> String; fn black(self)     -> String;
+    fn b_black(self)   -> String; fn b_red(self)     -> String;
+    fn b_yellow(self)  -> String; fn b_magenta(self) -> String;
+    fn b_cyan(self)    -> String; fn bold(self)      -> String;
+    fn underlined(self) -> String;
+}
+
+macro_rules! impl_ansi {
+    ($t:ty) => {
+        impl AnsiColor for $t {
+            fn magenta(self)    -> String { format!("\x1b[35m{}\x1b[0;39;49m", self) }
+            fn yellow(self)     -> String { format!("\x1b[33m{}\x1b[0;39;49m", self) }
+            fn grey(self)       -> String { format!("\x1b[37m{}\x1b[0;39;49m", self) }
+            fn blue(self)       -> String { format!("\x1b[34m{}\x1b[0;39;49m", self) }
+            fn cyan(self)       -> String { format!("\x1b[36m{}\x1b[0;39;49m", self) }
+            fn black(self)      -> String { format!("\x1b[30m{}\x1b[0;39;49m", self) }
+            fn b_black(self)    -> String { format!("\x1b[90m{}\x1b[0;39;49m", self) }
+            fn b_red(self)      -> String { format!("\x1b[91m{}\x1b[0;39;49m", self) }
+            fn b_yellow(self)   -> String { format!("\x1b[93m{}\x1b[0;39;49m", self) }
+            fn b_magenta(self)  -> String { format!("\x1b[95m{}\x1b[0;39;49m", self) }
+            fn b_cyan(self)     -> String { format!("\x1b[96m{}\x1b[0;39;49m", self) }
+            fn bold(self)       -> String { format!("\x1b[1m{}\x1b[0;39;49m", self) }
+            fn underlined(self) -> String { format!("\x1b[4m{}\x1b[0;39;49m", self) }
+        }
+    };
+}
+
+impl_ansi!(&str);
+impl_ansi!(String);
+
 #[derive(serde::Deserialize)]
 struct IndexEntry {
     vers: String,
-    features: BrownMap<String, Vec<String>>,
+    features: HashMap<String, Vec<String>>,
     // features2 holds dep:-syntax features (Cargo 1.60+); merged with features for display
     #[serde(default)]
-    features2: BrownMap<String, Vec<String>>,
+    features2: HashMap<String, Vec<String>>,
     yanked: bool,
 }
 

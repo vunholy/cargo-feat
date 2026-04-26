@@ -1,6 +1,6 @@
 [package]
 name = "cargo-feat"
-version = "0.1.7"
+version = "0.1.8"
 edition = "2024"
 description = "Instantly look up available features for any crate on crates.io, directly in your terminal."
 license = "Apache-2.0"
@@ -18,21 +18,16 @@ name = "feat"
 path = "src/main.rs"
 
 [dependencies]
-colorize = "0.1.0"
-
 simd-json = "0.17.0"
-
 serde = { version = "1", default-features = false, features = ["derive"] }
-ahash = { version = "0.8.12" }
 mimalloc = { version = "0.1.50", default-features = false }
-hashbrown = { version = "0.17.0", features = ["serde"] }
 ureq = { version = "3", default-features = false, features = ["rustls", "gzip"] }
 
 [profile.release]
 opt-level = 3
 lto = "fat"
 codegen-units = 1
-panic = "unwind"
+panic = "abort"
 overflow-checks = false
 strip = "symbols"
 debug = false

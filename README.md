@@ -218,9 +218,6 @@ The remaining ~12 ms is Windows process startup — unavoidable overhead from th
 | `simd-json` | SIMD-accelerated JSON deserialization |
 | `serde` | Derive macros for JSON deserialization |
 | `mimalloc` | Global high-performance memory allocator |
-| `hashbrown` | Fast `HashMap` / `HashSet` backed by Swiss tables |
-| `ahash` | Non-cryptographic, high-speed hash function |
-| `colorize` | ANSI escape code helpers for colored terminal output |
 
 ---
 
