@@ -184,9 +184,9 @@ hyperfine --warmup 10 --runs 50 \
   -n 'cargo info (network)'      'cargo info reqwest' \
   -n 'cargo feat'                'cargo feat reqwest'
 
-  cargo feat                 11.9 ms ±  1.4 ms
-  cargo info (offline/warm) 101.0 ms ±  5.4 ms    8.5x slower
-  cargo info (network)      423.8 ms ± 61.1 ms   35.6x slower
+	cargo feat                 49.2 ms ± 1.7 ms
+	cargo info (offline/warm) 81.0 ms ± 4.0 ms    ~1.65x slower
+	cargo info (network)      357.3 ms ± 11.4 ms  ~7.26x slower
 ```
 
 The lookup time stays flat regardless of how many versions a crate has. `serde` (180+ versions in the index) benchmarks identically to `reqwest`:
