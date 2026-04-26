@@ -74,7 +74,7 @@ Copy-Item target\release\feat.exe "$env:USERPROFILE\.cargo\bin\feat.exe"
 ## Usage
 
 ```
-feat <crate-name> [version] [all|nd]
+feat <crate-name> [version] [all|nd] [--deps] [--internals] [--include-internals|-ii] [--json]
 ```
 
 | Argument | Required | Description |
@@ -82,8 +82,12 @@ feat <crate-name> [version] [all|nd]
 | `<crate-name>` | Yes | Name of the crate to look up. Underscores are automatically normalized to hyphens. |
 | `[all\|nd]` | No | Feature filter. `all` (default) shows every feature. `nd` hides the default feature block but still lists all features and marks the ones that are part of the default set. |
 | `[version]` | No | Specific crate version to query. Defaults to the latest stable release. |
+| `--deps` | No | Show the full dependency list for each feature, printed below it. |
+| `--internals` | No | Annotate features that pull in internal (`__`-prefixed) deps with `[[...]]` next to their name. |
+| `--include-internals`, `-ii` | No | Show internal (`__`-prefixed) features as their own entries in the list (greyed out). |
+| `--json` | No | Print the raw features map as JSON and exit. |
 
-The `version` and `all|nd` arguments are order-independent — `feat tokio 1.35.0 nd` and `feat tokio nd 1.35.0` both work.
+All flags are order-independent and can be freely combined.
 
 ### Examples
 
@@ -97,8 +101,20 @@ feat reqwest nd
 # List features for a specific version
 feat tokio 1.35.0
 
-# Combine a version with a filter
-feat tokio 1.35.0 nd
+# Show what each feature pulls in
+feat reqwest --deps
+
+# Annotate features that pull in internal (__) deps
+feat reqwest --internals
+
+# Show internal (__) features as their own entries
+feat reqwest -ii
+
+# Combine: deps + internals annotation + internal entries
+feat reqwest --deps --internals -ii
+
+# Dump the features as JSON
+feat serde --json
 
 # Crate names with underscores work fine
 feat proc_macro2
@@ -120,10 +136,30 @@ feat proc_macro2
     — feature-d
 ```
 
+With `--deps`:
+
+```
+    — blocking
+         dep:futures-channel
+         futures-channel?/sink
+         tokio/sync
+    — json
+         dep:serde
+         dep:serde_json
+```
+
+With `--internals`:
+
+```
+    — __tls                          <- internal feature, shown in grey
+    — native-tls [[__native-tls]]    <- [[...]] lists the internal deps this feature pulls in
+    — rustls     [[__rustls, __rustls-aws-lc-rs]]
+```
+
 - The `★ default` block lists which features are enabled when you add the crate without specifying features.
 - Features marked `(default)` are part of the default feature set.
 - Using `nd` hides the `★ default` block but keeps all features in the list, still marking the ones that belong to the default set.
-- Internal features (names starting with `__`) are always hidden.
+- Internal features (names starting with `__`) are hidden by default. Use `--internals` to annotate which public features pull them in, or `-ii` / `--include-internals` to show them as their own entries.
 
 ---
 

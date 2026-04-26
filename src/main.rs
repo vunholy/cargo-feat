@@ -50,7 +50,11 @@ fn index_cache_dir() -> Option<std::path::PathBuf> {
     let index_dir = std::fs::read_dir(&index_base)
         .ok()?
         .filter_map(|e| e.ok())
-        .find(|e| e.file_name().to_string_lossy().starts_with("index.crates.io-"))?
+        .find(|e| {
+            e.file_name()
+                .to_string_lossy()
+                .starts_with("index.crates.io-")
+        })?
         .path();
     Some(index_dir.join("cache"))
 }
@@ -63,7 +67,9 @@ fn read_local_cache(path: &str) -> Option<Vec<u8>> {
 
 // Writes raw NDJSON bytes to the cargo cache so future lookups skip the network entirely.
 fn write_local_cache(path: &str, bytes: &[u8]) {
-    let Some(cache_dir) = index_cache_dir() else { return };
+    let Some(cache_dir) = index_cache_dir() else {
+        return;
+    };
     let file_path = cache_dir.join(path);
     if let Some(parent) = file_path.parent() {
         let _ = std::fs::create_dir_all(parent);
@@ -73,7 +79,10 @@ fn write_local_cache(path: &str, bytes: &[u8]) {
 
 fn fetch_bytes(path: &str) -> Option<Vec<u8>> {
     ureq::get(format!("https://index.crates.io/{path}"))
-        .header("User-Agent", concat!("cargo-feat/", env!("CARGO_PKG_VERSION")))
+        .header(
+            "User-Agent",
+            concat!("cargo-feat/", env!("CARGO_PKG_VERSION")),
+        )
         .call()
         .ok()
         .and_then(|mut r| r.body_mut().read_to_vec().ok())
@@ -102,7 +111,7 @@ fn main() {
                 .grey()
         );
         println!(
-            "\n\t{}\n\t{} {} {} {} {} {}\n\n\t{}\n\t{} {} {} {}",
+            "\n\t{}\n\t{} {} {} {} {} {} {} {} {} {}\n\n\t{}\n\t{} {} {} {}",
             "— Base command usage —".magenta(),
             "|".magenta(),
             "$".yellow(),
@@ -110,6 +119,10 @@ fn main() {
             "*<crate name>".grey().bold(),
             "<version>".grey().bold(),
             "<all|nd (not default)>".grey().bold(),
+            "[--internals]".grey().bold(),
+            "[--include-internals|-ii]".grey().bold(),
+            "[--deps]".grey().bold(),
+            "[--json]".grey().bold(),
             "— Example Usage —".magenta(),
             "|".magenta(),
             "$".yellow(),
@@ -123,9 +136,21 @@ fn main() {
 
     let mut feat_filter = FILTER_ALL.to_string();
     let mut explicit_version: Option<String> = None;
+    let mut show_internals = false;
+    let mut include_internals = false;
+    let mut output_json = false;
+    let mut show_deps = false;
     for arg in args.iter().skip(1) {
         let s = arg.trim();
-        if s == FILTER_ALL || s == FILTER_ND {
+        if s == "--internals" {
+            show_internals = true;
+        } else if s == "--include-internals" || s == "-ii" {
+            include_internals = true;
+        } else if s == "--json" {
+            output_json = true;
+        } else if s == "--deps" {
+            show_deps = true;
+        } else if s == FILTER_ALL || s == FILTER_ND {
             feat_filter = s.to_string();
         } else {
             explicit_version = Some(s.to_string());
@@ -136,11 +161,13 @@ fn main() {
 
     // Fast path: local Cargo registry cache (populated by cargo build/add/update, or prior cargo-feat run)
     // Slow path: fetch from network, then persist to cache so the next run is fast
-    let bytes = read_local_cache(&path).or_else(|| {
-        let data = fetch_bytes(&path)?;
-        write_local_cache(&path, &data);
-        Some(data)
-    }).unwrap_or_else(|| {
+    let bytes = read_local_cache(&path)
+        .or_else(|| {
+            let data = fetch_bytes(&path)?;
+            write_local_cache(&path, &data);
+            Some(data)
+        })
+        .unwrap_or_else(|| {
             eprintln!(
                 "{}{} {}{} {}",
                 "<".b_black(),
@@ -203,6 +230,33 @@ fn main() {
 
     let mut all_features = entry.features;
     all_features.extend(entry.features2);
+
+    if output_json {
+        let mut sorted: Vec<(&String, &Vec<String>)> = all_features.iter().collect();
+        sorted.sort_by_key(|(k, _)| k.as_str());
+        let mut out = String::from("{");
+        for (i, (k, v)) in sorted.iter().enumerate() {
+            if i > 0 {
+                out.push_str(", ");
+            }
+            out.push('"');
+            out.push_str(k);
+            out.push_str("\": [");
+            for (j, s) in v.iter().enumerate() {
+                if j > 0 {
+                    out.push_str(", ");
+                }
+                out.push('"');
+                out.push_str(s);
+                out.push('"');
+            }
+            out.push(']');
+        }
+        out.push('}');
+        println!("{}", out);
+        return;
+    }
+
     let mut features: Vec<(String, Vec<String>)> = all_features.into_iter().collect();
 
     if features.is_empty() {
@@ -242,7 +296,12 @@ fn main() {
         .map(|(_, v)| v.iter().map(String::as_str).collect())
         .unwrap_or_default();
 
-    for (key, val) in features.iter().filter(|(k, _)| !k.starts_with("__")) {
+    for (key, val) in features.iter() {
+        let is_internal = key.starts_with("__");
+        if is_internal && !include_internals {
+            continue;
+        }
+
         if key == "default" {
             if feat_filter == FILTER_ND {
                 continue;
@@ -265,13 +324,44 @@ fn main() {
             continue;
         }
 
+        if is_internal {
+            println!("\t{} {}", "—".grey(), key.clone().grey().bold());
+            if show_deps && !val.is_empty() {
+                println!("\t     {}", val.join("\n\t     ").grey());
+            }
+            continue;
+        }
+
+        let internals_annotation = if show_internals {
+            let internal_deps: Vec<&str> = val
+                .iter()
+                .filter(|s| s.starts_with("__"))
+                .map(String::as_str)
+                .collect();
+            if !internal_deps.is_empty() {
+                let inner = internal_deps.join(", ");
+                // Changed from .grey() to .black(), Looks better :p
+                format!(
+                    " {}{}{}",
+                    "[[".black().bold(),
+                    inner.black().bold(),
+                    "]]".black().bold()
+                )
+            } else {
+                String::new()
+            }
+        } else {
+            String::new()
+        };
+
         println!(
-            "\t{} {} {}",
+            "\t{} {}{}{}",
             "—".b_magenta(),
             key.clone().b_cyan().bold(),
+            internals_annotation,
             if default_features_set.contains(key.as_str()) {
                 format!(
-                    "{}{}{}",
+                    " {}{}{}",
                     "(".b_yellow(),
                     "default".bold().b_magenta(),
                     ")".b_yellow()
@@ -280,5 +370,9 @@ fn main() {
                 "".into()
             }
         );
+
+        if show_deps && !val.is_empty() {
+            println!("\t     {}", val.join("\n\t     ").cyan());
+        }
     }
 }
