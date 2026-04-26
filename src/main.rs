@@ -1,3 +1,4 @@
+use std::io::{self, BufWriter, Write};
 use std::process::exit;
 
 use colorize::AnsiColor;
@@ -88,13 +89,27 @@ fn fetch_bytes(path: &str) -> Option<Vec<u8>> {
         .and_then(|mut r| r.body_mut().read_to_vec().ok())
 }
 
-// Only parse lines that start with '{' — skips binary cache headers and blank lines
-fn parse_entries(bytes: &[u8]) -> Vec<IndexEntry> {
+fn json_lines(bytes: &[u8]) -> Vec<&[u8]> {
     bytes
         .split(|&b| b == b'\n')
         .filter(|line| line.first() == Some(&b'{'))
-        .filter_map(|line| simd_json::from_slice(&mut line.to_vec()).ok())
         .collect()
+}
+
+// For latest: scans from the end and stops at the first stable non-yanked entry (O(1) parses in practice).
+// For an explicit version: scans forward and stops at the first match.
+fn find_entry(lines: &[&[u8]], explicit_version: Option<&str>) -> Option<IndexEntry> {
+    if let Some(ver) = explicit_version {
+        lines.iter().find_map(|line| {
+            let entry: IndexEntry = simd_json::from_slice(&mut line.to_vec()).ok()?;
+            (entry.vers == ver).then_some(entry)
+        })
+    } else {
+        lines.iter().rev().find_map(|line| {
+            let entry: IndexEntry = simd_json::from_slice(&mut line.to_vec()).ok()?;
+            (!entry.yanked && !entry.vers.contains('-')).then_some(entry)
+        })
+    }
 }
 
 fn main() {
@@ -179,9 +194,9 @@ fn main() {
             exit(103);
         });
 
-    let entries = parse_entries(&bytes);
+    let lines = json_lines(&bytes);
 
-    if entries.is_empty() {
+    if lines.is_empty() {
         eprintln!(
             "{}{} {}{} {}",
             "<".b_black(),
@@ -193,32 +208,11 @@ fn main() {
         exit(103);
     }
 
-    // Index lines are in chronological order — last non-yanked stable entry = newest stable version
-    let crate_version = explicit_version.unwrap_or_else(|| {
-        entries
-            .iter()
-            .rev()
-            .find(|e| !e.yanked && !e.vers.contains('-'))
-            .map(|e| e.vers.clone())
-            .unwrap_or_else(|| {
-                eprintln!(
-                    "{}{} {}{} {}",
-                    "<".b_black(),
-                    "Uh".yellow(),
-                    "oh".b_red(),
-                    ">".b_black(),
-                    format!("No stable version found for crate \"{crate_name}\"").yellow()
-                );
-                exit(105);
-            })
-    });
-
-    let entry = entries
-        .into_iter()
-        .find(|e| e.vers == crate_version)
-        .unwrap_or_else(|| {
+    let entry = find_entry(&lines, explicit_version.as_deref()).unwrap_or_else(|| {
+        if explicit_version.is_some() {
+            let ver = explicit_version.as_deref().unwrap_or("");
             eprintln!(
-                "{}{} {}{} {}\n- Version \"{crate_version}\" not found for crate \"{crate_name}\"",
+                "{}{} {}{} {}\n- Version \"{ver}\" not found for crate \"{crate_name}\"",
                 "<".b_black(),
                 "Uh".yellow(),
                 "oh".b_red(),
@@ -226,10 +220,23 @@ fn main() {
                 "The specified version does not exist on crates.io".yellow(),
             );
             exit(104);
-        });
+        } else {
+            eprintln!(
+                "{}{} {}{} {}",
+                "<".b_black(),
+                "Uh".yellow(),
+                "oh".b_red(),
+                ">".b_black(),
+                format!("No stable version found for crate \"{crate_name}\"").yellow()
+            );
+            exit(105);
+        }
+    });
 
     let mut all_features = entry.features;
     all_features.extend(entry.features2);
+
+    let mut w = BufWriter::new(io::stdout());
 
     if output_json {
         let mut sorted: Vec<(&String, &Vec<String>)> = all_features.iter().collect();
@@ -253,14 +260,15 @@ fn main() {
             out.push(']');
         }
         out.push('}');
-        println!("{}", out);
+        let _ = writeln!(w, "{}", out);
         return;
     }
 
     let mut features: Vec<(String, Vec<String>)> = all_features.into_iter().collect();
 
     if features.is_empty() {
-        println!(
+        let _ = writeln!(
+            w,
             "{} {} {} {} {}",
             "—".bold().yellow(),
             crate_name.b_magenta().bold(),
@@ -271,7 +279,8 @@ fn main() {
         return;
     }
 
-    println!(
+    let _ = writeln!(
+        w,
         "{} {}{} {} {}",
         "—".bold().yellow(),
         crate_name.b_magenta().bold(),
@@ -307,14 +316,16 @@ fn main() {
                 continue;
             }
             if val.is_empty() {
-                println!(
+                let _ = writeln!(
+                    w,
                     "\t{} {} \n\t     {}",
                     "★".b_yellow(),
                     key.clone().b_magenta().bold().underlined(),
                     "none".blue()
                 );
             } else {
-                println!(
+                let _ = writeln!(
+                    w,
                     "\t{} {} \n\t     {}",
                     "★".b_yellow(),
                     key.clone().b_magenta().bold().underlined(),
@@ -325,9 +336,9 @@ fn main() {
         }
 
         if is_internal {
-            println!("\t{} {}", "—".grey(), key.clone().grey().bold());
+            let _ = writeln!(w, "\t{} {}", "—".grey(), key.clone().grey().bold());
             if show_deps && !val.is_empty() {
-                println!("\t     {}", val.join("\n\t     ").grey());
+                let _ = writeln!(w, "\t     {}", val.join("\n\t     ").grey());
             }
             continue;
         }
@@ -340,7 +351,6 @@ fn main() {
                 .collect();
             if !internal_deps.is_empty() {
                 let inner = internal_deps.join(", ");
-                // Changed from .grey() to .black(), Looks better :p
                 format!(
                     " {}{}{}",
                     "[[".black().bold(),
@@ -354,7 +364,8 @@ fn main() {
             String::new()
         };
 
-        println!(
+        let _ = writeln!(
+            w,
             "\t{} {}{}{}",
             "—".b_magenta(),
             key.clone().b_cyan().bold(),
@@ -372,7 +383,7 @@ fn main() {
         );
 
         if show_deps && !val.is_empty() {
-            println!("\t     {}", val.join("\n\t     ").cyan());
+            let _ = writeln!(w, "\t     {}", val.join("\n\t     ").cyan());
         }
     }
 }

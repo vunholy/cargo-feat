@@ -1,6 +1,6 @@
 [package]
 name = "cargo-feat"
-version = "0.1.6"
+version = "0.1.7"
 edition = "2024"
 description = "Instantly look up available features for any crate on crates.io, directly in your terminal."
 license = "Apache-2.0"
