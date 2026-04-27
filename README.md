@@ -2,8 +2,6 @@
 
 [![crates.io](https://img.shields.io/crates/v/cargo-feat.svg)](https://crates.io/crates/cargo-feat)
 
-> **Disclaimer:** I am not a Rust professional and I am not claiming to be one - I built this simply because it was useful to me. The core logic was written by me; Some of the performance work and optimizations were done in collaboration with Claude.
-
 A fast command-line tool for Rust developers to instantly look up the available features of any crate on [crates.io](https://crates.io) - directly in your terminal, with no browser required.
 
 ---
@@ -246,6 +244,12 @@ The `.cargo/config.toml` enables additional compiler flags for the Windows MSVC 
 - `/OPT:REF`, `/OPT:ICF` — dead-code elimination and identical-COMDAT-folding at link time.
 
 If you are building for a different target or a CPU without AVX2, remove or adjust those flags in `.cargo/config.toml`.
+
+## Notes
+
+This project was built and maintained by me as a personal tool.
+
+The core functionality existed before any AI-assisted work; AI tools were only used later for optimization exploration and documentation.
 
 ---
 
